@@ -92,3 +92,68 @@ for x in rs_env:
 
 # Number of errors (should be 4)
 len(rs_flag)-sum(rs_flag)
+
+################ Empirical Bayes Fitting
+
+########### Get the weighted Fast Fourier Transform data
+rs_fft = []
+rs_fft_ix = []
+ii = -1
+for i in range(len(rs_flag)):
+    if rs_flag[i]==1:
+        ii = ii+1
+        print(i,ii)
+        x = Timeseries(trainAll['data'][i],absolutevalue)
+        rs_fft.append(getWeightedFFT(x, mu=rs_stat[ii]["peak"], sigma=rs_stat[ii]["peakwidth"], 
+            scale=rs_stat[ii]["peakheight"], sigmaMult=5, K=15))
+        rs_fft_ix.append(i)
+
+########### Get some indexes for associating data elements
+rs_fft_ixrev = numpy.repeat(0,len(yTrainAll))
+for i in range(len(rs_fft_ix)):
+   rs_fft_ixrev[ rs_fft_ix[i] ] = i
+
+ixTrainAll = indexSet(rs_fft_ix, yTrainAll)
+
+########### Get multivariate normal sufficient statistics
+rs_mvn = {}
+for k in [*ixTrainAll]:
+     rs_mvn[k] = getMVNStats(rs_fft,ixTrainAll[k],rs_fft_ixrev)
+
+########### Get Empirical Bayes posterior probabilities
+rs_eb = []
+for i in range(len(rs_fft)):
+  rs_eb.append(eBayes(rs_fft[i], rs_mvn))
+ 
+########### Classify by max Empirical Bayes posterior probability
+rs_ebClass = []
+rs_ebClassCorrect = []
+for i in range(len(rs_fft)):
+   keys = [*rs_eb[i]]
+   mx = keys[0]
+   for k in keys:
+      if rs_eb[i][k]>rs_eb[i][mx]:
+          mx = k
+   rs_ebClass.append(mx) 
+   rs_ebClassCorrect.append(1*(mx==yTrainAll[rs_fft_ix[i]]))
+
+########### Assess classification
+# Correctly classified (naive, not cross-validated)
+sum(rs_ebClassCorrect)/len(rs_ebClassCorrect)
+
+########### Show heatmap of classification
+PALETTE = ("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628",
+   "#8DD3C7","#FFFFB3","#BEBADA","#FB8072","#80B1D3","#FDB462")
+
+trainAll_annot = ["" for x in range(len(trainAll['data']))]
+k = [*ixTrainAll]
+for j in range(len(k)):
+   for i in range(len(ixTrainAll[k[j]])):
+      trainAll_annot[ixTrainAll[k[j]][i]] = PALETTE[j]
+
+rs_class_annot = ["" for x in range(len(rs_fft_ix))]
+for i in range(len(rs_fft_ix)):
+   rs_class_annot[i] = trainAll_annot[rs_fft_ix[i]]
+
+showHeatmap(rs_eb,rs_class_annot)
+closeRPlot()
