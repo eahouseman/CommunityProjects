@@ -250,13 +250,15 @@ def dmvnorm(x, stat):
 def eBayes(x, stats):
    keys = [*stats]
    nFeature = len(keys)
-   logp = numpy.repeat(0.0,nFeature)
+   p = numpy.repeat(0.0,nFeature)
    for j in range(nFeature):
-       logp[j] = dmvnorm(x, stats[keys[j]])
-   mx = numpy.max(logp)
+       p[j] = dmvnorm(x, stats[keys[j]])
+   mx = numpy.max(p)
+   for j in range(nFeature):
+       p[j] = math.exp(p[j] - mx)
    out = {}
    for j in range(nFeature):
-       out[keys[j]] = math.exp(logp[j] - mx)
+       out[keys[j]] = p[j]/sum(p)
    return(out)
 
 import rpy2.robjects.numpy2ri
